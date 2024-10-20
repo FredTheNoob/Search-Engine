@@ -1,0 +1,23 @@
+# www.robotstxt.org/
+# www.google.com/support/webmasters/bin/answer.py?hl=en&answer=156449
+
+User-agent: GPTBot
+Disallow: /
+
+User-agent: CCBot
+Disallow: /
+
+User-agent: *
+Crawl-delay: 10
+Disallow: /api
+Disallow: /reset_password
+Disallow: /logout
+Disallow: /login
+Disallow: /faa-adgang
+Disallow: /showMore
+Disallow: /image_gallery/
+Disallow: /tracking/image_gallery/
+Disallow: /sonata/
+
+Sitemap: https://www.bt.dk/sitemap.xml
+Sitemap: https://www.bt.dk/sitemap.xml/news
