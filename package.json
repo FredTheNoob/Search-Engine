@@ -1,6 +1,11 @@
 {
   "name": "wi",
   "module": "index.ts",
+  "scripts": {
+    "crawler": "bun run exercise2/web_crawler/crawler.ts",
+    "indexer": "bun run exercise3/indexer.ts",
+    "all": "bun run crawler && bun run indexer"
+  },
   "devDependencies": {
     "@types/bun": "latest"
   },

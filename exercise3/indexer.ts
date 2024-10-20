@@ -1,5 +1,6 @@
 // content-based indexer using lnc.ltc
 import fs from "fs";
+import type { URLData } from '../exercise2/web_crawler/lib/types';
 
 type IndexData = {
     document_frequency: number,
@@ -14,31 +15,38 @@ const inverted_index = new Map<string, IndexData>();
 let doc_id = 0;
 
 async function indexer() {
-    /*
+    
     const crawled_urls = await parse_input();
     const tokens = []
 
     // tokenizer
-    */
-
+    
+    // test bench
+    /*
     const crawled_urls = new Map<string,string>();
     const tokens = []
-
+    
     crawled_urls.set("doc1", "deez nutz gottem ha xd");
     crawled_urls.set("doc2", "deez");
     crawled_urls.set("doc3", "deez nutz");
     crawled_urls.set("doc4", "gottem ha");
+    */
 
-    for (const document of crawled_urls.values()) tokens.push(...tokenizer(document));
+    for (const document of crawled_urls.values()) tokens.push(...tokenizer(document.html_content));
+
+    console.log(crawled_urls);
+    
 
 	construct_postings(crawled_urls, tokens);
 	
 	//console.log(inverted_index);
 	
-    search("deez nutz");
+    const result = search("deez nutz");
+
+    console.log(result);
 }
 
-function search(input: string) {
+function search(input: string, k: number = 10) {
     const terms = input.split(" ");
 
     // Step 1: Use reduce to count the occurrences of each word.
@@ -96,14 +104,18 @@ function search(input: string) {
     }
 
     const sorted_document_scores = new Map([...document_scores.entries()].sort((a, b) => b[1] - a[1]));
-    console.log(sorted_document_scores);
+
+    const sorted_document_scores_array = [...sorted_document_scores.entries()];
+    const top_k = sorted_document_scores_array.slice(0, k);
+    
+    return top_k;
 }
 
-async function parse_input(): Promise<Map<string, string>> {
-    const jsonData = await fs.promises.readFile("../exercise2/output/sites.json", 'utf-8');
-    const mapArray: [string, string][] = JSON.parse(jsonData);
+async function parse_input(): Promise<Map<string, URLData>> {
+    const json_data = await fs.promises.readFile("./exercise2/output/sites.json", 'utf-8');
+    const map_arr: [string, URLData][] = JSON.parse(json_data);
 
-    return new Map(mapArray);
+    return new Map(map_arr);
 }
 
 function tokenizer(text: string): string[] {
@@ -118,13 +130,13 @@ function tokenizer(text: string): string[] {
       .filter(token => token.length > 0);
 }
 
-function construct_postings(crawled_urls: Map<string, string>, tokens: string[]) {
+function construct_postings(crawled_urls: Map<string, URLData>, tokens: string[]) {
 	for (const document of crawled_urls.values()) {
 		for (const token of tokens) {
-			if (document.includes(token)) {
+			if (document.html_content.includes(token)) {
 				const term_data = inverted_index.get(token);
 
-                const term_frequency = [...document.matchAll(new RegExp(token, 'g'))].length                
+                const term_frequency = [...document.html_content.matchAll(new RegExp(token, 'g'))].length                
 
 				if (!term_data) {
 					inverted_index.set(token, 
