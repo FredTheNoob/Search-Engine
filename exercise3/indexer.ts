@@ -1,6 +1,7 @@
 // content-based indexer using lnc.ltc
 import fs from "fs";
 import type { URLData } from '../exercise2/web_crawler/lib/types';
+import { pagerank } from "./pagerank";
 
 type IndexData = {
     document_frequency: number,
@@ -19,6 +20,8 @@ async function indexer() {
     const crawled_urls = await parse_input();
     const tokens = []
 
+    pagerank(crawled_urls);
+
     // tokenizer
     
     // test bench
@@ -30,7 +33,6 @@ async function indexer() {
     crawled_urls.set("doc2", "deez");
     crawled_urls.set("doc3", "deez nutz");
     crawled_urls.set("doc4", "gottem ha");
-    */
 
     for (const document of crawled_urls.values()) tokens.push(...tokenizer(document.html_content));
 
@@ -44,6 +46,8 @@ async function indexer() {
     const result = search("deez nutz");
 
     console.log(result);
+    */
+
 }
 
 function search(input: string, k: number = 10) {
