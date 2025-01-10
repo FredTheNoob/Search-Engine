@@ -5,6 +5,7 @@ import { fetch_url } from './components/fetch_url';
 import { is_content_seen } from './components/is_content_seen';
 import { parse } from './components/parse';
 import fs from "fs";
+import type { URLData } from './lib/types';
 
 const seedUrls: string[] = [
     "https://www.dr.dk",
@@ -27,10 +28,6 @@ const seedUrls: string[] = [
     "https://www.jobindex.dk",
     "https://www.dba.dk",
     "https://www.danskindustri.dk"
-]
-
-const seedUrlss: string[] = [
-    "https://www.dr.dk",
 ]
 
 const userAgentName = "Fred's Crawler/1.0";
@@ -108,7 +105,7 @@ async function crawler() {
 
         const crawlDelay = filter.robots_file_rules.crawlDelay;
 
-        const delay = crawlDelay === 0 ? DEFAULT_CRAWL_DELAY : crawlDelay * 1000;
+        const delay = crawlDelay * 1000;
         const current_time = Date.now(); 
         visited_hosts_timestamps.set(parsed_url.host, current_time + delay)
         
@@ -140,7 +137,7 @@ async function crawler() {
         \tTotal time used ${duration_in_seconds} seconds`
     );
 
-    await fs.promises.writeFile("../output/sites.json", JSON.stringify(Array.from(processed_urls)), 'utf-8')
+    await fs.promises.writeFile("./exercise2/output/sites.json", JSON.stringify(Array.from(processed_urls)), 'utf-8')
 }
 
 async function url_filter(url: URL, page_urls: string[]): Promise<{page_urls_to_explore: string[], robots_file_rules: IRobotRule}> {
@@ -156,7 +153,7 @@ async function url_filter(url: URL, page_urls: string[]): Promise<{page_urls_to_
     let robots_file_rules = parse_robots_file(robots_file, url.toString())
 
     // no robots.txt? No rules 😎
-    if (!res.ok) robots_file_rules = {allows: [], disallows: [], crawlDelay: 0}
+    if (!res.ok) robots_file_rules = {allows: [], disallows: [], crawlDelay: DEFAULT_CRAWL_DELAY_SECONDS}
     
     robots_filters.set(url.origin, robots_file_rules);
     
@@ -180,7 +177,7 @@ function extract_page_urls(page_content: string, baseUrl: string): string[] {
     $('a').each((index, element) => {
         const href = $(element).attr('href');
         if (href) {
-            if (is_valid_url(href)) {
+            if (is_valid_url(href) && links.indexOf(href) === -1) {
                 // Convert relative URL to absolute URL
                 const absoluteUrl = new URL(href, baseUrl).toString();
                 links.push(absoluteUrl);
