@@ -35,11 +35,6 @@ const userAgentName = "Fred's Crawler/1.0";
 const PAGES = 1000
 const DEFAULT_CRAWL_DELAY = 2000
 
-export type URLData = {
-    html_content: string,
-    pages: string[]
-}
-
 const processed_urls = new Map<URL, URLData>()
 const frontier: string[] = []
 const robots_filters = new Map<string, IRobotRule>()
@@ -153,7 +148,7 @@ async function url_filter(url: URL, page_urls: string[]): Promise<{page_urls_to_
     let robots_file_rules = parse_robots_file(robots_file, url.toString())
 
     // no robots.txt? No rules 😎
-    if (!res.ok) robots_file_rules = {allows: [], disallows: [], crawlDelay: DEFAULT_CRAWL_DELAY_SECONDS}
+    if (!res.ok) robots_file_rules = {allows: [], disallows: [], crawlDelay: DEFAULT_CRAWL_DELAY}
     
     robots_filters.set(url.origin, robots_file_rules);
     
