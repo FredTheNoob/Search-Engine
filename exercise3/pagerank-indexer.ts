@@ -1,34 +1,47 @@
-// content-based indexer using lnc.ltc
+// content-based indexer using lnc.ltc and pagerank
 import fs from "fs";
-
-type IndexData = {
-    document_frequency: number,
-    inverse_document_frequency: number,
-    doc_data: Map<number, {
-        term_frequency: number,
-        normalized_weighted_term: number,
-    }>
-};
-
-const inverted_index = new Map<string, IndexData>();
-let doc_id = 0;
+import type { BuiltIndexResult, CrawlData, IdToURL, IndexData, InvertedIndex, URLData } from "./types/indexer";
+import { load_saved_inverted_index, save_inverted_index } from "./components/io-indexer";
 
 async function indexer() {
-    const crawled_urls = await parse_input();
-    console.log(crawled_urls);
+    let inverted_index = new Map<string, IndexData>();
+    let idToURL = new Map<number, URLData>();
+
+    // const crawled_urls = await parse_input();
+
+    // // console.log(crawled_urls);
     
-    const tokens = []
+    // const tokens = []
 
-    for (const document of crawled_urls.values()) tokens.push(...tokenizer(document));
+    // console.time("tokenizing content...");
+    // for (const input of crawled_urls.values()) tokens.push(...tokenizer(input.html_content));
+    // console.timeEnd("tokenizing content...");
 
-	construct_postings(crawled_urls, tokens);
+	// console.time("building index...");
+
+	// const built = build_inverted_index(crawled_urls, tokens);
+    // inverted_index = built.inverted_index;
+    // idToURL = built.idToURL
+
+	// console.timeEnd("building index...");
+    
+    // await save_inverted_index(inverted_index, idToURL);
+
+    console.time("loading saved index...");
+    const loaded = await load_saved_inverted_index()
+
+    inverted_index = loaded.inverted_index;
+    idToURL = loaded.idToURL;
+
+    console.timeEnd("loading saved index...");
 	
-	console.log(inverted_index);
-	
-    //search("deez nutz");
+    console.time("searching...");
+    const results = search("trump lars løkke og rusland", inverted_index, idToURL);
+    console.timeEnd("searching...");
+    console.log(results);
 }
 
-function search(input: string) {
+function search(input: string, inverted_index: InvertedIndex, idToURL: IdToURL, top_n: number = 10) {
     const terms = input.split(" ");
 
     // Step 1: Use reduce to count the occurrences of each word.
@@ -56,7 +69,7 @@ function search(input: string) {
     }
     
 
-    // TODO: throw this in a function since its the exact same code as in construct_postings!
+    // TODO: throw this in a function since its the exact same code as in build_inverted_index!
     const powered_wt = wt_vector.map(wt => Math.pow(wt, 2));
     const powered_wt_sum = powered_wt.reduce((sum, current) => sum + current, 0);
     const unit_vector = Math.sqrt(powered_wt_sum); 
@@ -86,12 +99,23 @@ function search(input: string) {
     }
 
     const sorted_document_scores = new Map([...document_scores.entries()].sort((a, b) => b[1] - a[1]));
-    console.log(sorted_document_scores);
+    // console.log(sorted_document_scores);
+
+    const results = []
+    let j = 0;
+
+    for (const [doc_id, score] of sorted_document_scores) {
+        if (j >= top_n) break;
+        const url = idToURL.get(doc_id)
+        results.push({url: url, score: score*100})
+        j++;
+    }
+    return results;
 }
 
-async function parse_input(): Promise<Map<string, string>> {
+async function parse_input(): Promise<Map<string, CrawlData>> {
     const jsonData = await fs.promises.readFile("../exercise2/output/sites.json", 'utf-8');
-    const mapArray: [string, string][] = JSON.parse(jsonData);
+    const mapArray: [string, CrawlData][] = JSON.parse(jsonData);
 
     return new Map(mapArray);
 }
@@ -108,8 +132,14 @@ function tokenizer(text: string): string[] {
       .filter(token => token.length > 0);
 }
 
-function construct_postings(crawled_urls: Map<string, string>, tokens: string[]) {
-	for (const document of crawled_urls.values()) {
+function build_inverted_index(crawled_urls: Map<string, CrawlData>, tokens: string[]): BuiltIndexResult {
+    const inverted_index = new Map<string, IndexData>();
+    const idToURL = new Map<number,URLData>();
+    let doc_id = 0;
+
+	for (const data of crawled_urls.values()) {
+        const document = data.html_content
+
 		for (const token of tokens) {
 			if (document.includes(token)) {
 				const term_data = inverted_index.get(token);
@@ -173,6 +203,14 @@ function construct_postings(crawled_urls: Map<string, string>, tokens: string[])
             j++;
         }
     }
+
+    const urls = Array.from(crawled_urls.keys());
+
+    for (let i = 0; i < doc_id; i++) {
+        idToURL.set(i,{url: urls[i], page_rank_score: 0})
+    }
+
+    return {inverted_index, idToURL};
 }
 
 indexer();

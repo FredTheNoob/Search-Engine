@@ -1,5 +1,6 @@
 # Custom
 sites.json
+inverted_index.json
 
 .DS_Store
 .env

@@ -35,7 +35,7 @@ const seedUrlss: string[] = [
 
 const userAgentName = "Fred's Crawler/1.0";
 
-const PAGES = 50
+const PAGES = 1000
 const DEFAULT_CRAWL_DELAY = 2000
 
 export type URLData = {
@@ -49,7 +49,7 @@ const robots_filters = new Map<string, IRobotRule>()
 
 const visited_hosts_timestamps = new Map<string, number>()
 
-const SIMILARITY_THRESHOLD = 0.85
+const SIMILARITY_THRESHOLD = 0.7
 
 async function crawler() {
     const start = Date.now();
