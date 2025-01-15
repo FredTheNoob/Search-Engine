@@ -1,7 +1,7 @@
 import fs from "fs"
-import type { BuiltIndexResult, CrawlData, IdToURL, InvertedIndex } from "../types/indexer";
+import type { CrawlData, IdToURL, InvertedIndex } from "../types/indexer";
 
-export async function save_inverted_index(inverted_index: InvertedIndex, idToURL: IdToURL) {
+export async function save_inverted_index(inverted_index: InvertedIndex) {
     // Create the serializable index (same as before)
     const serializableIndex = Array.from(inverted_index, ([key, value]) => ({
         term: key,
@@ -10,16 +10,7 @@ export async function save_inverted_index(inverted_index: InvertedIndex, idToURL
         doc_data: Object.fromEntries(value.doc_data)
     }));
 
-    // Create the ID-to-URL mapping
-    const idToURLArray = Array.from(idToURL.entries());
-
-    // Save both the inverted index and the ID-to-URL mapping
-    const dataToSave = {
-        inverted_index: serializableIndex,
-        idToURL: idToURLArray
-    };
-
-    await fs.promises.writeFile("./output/inverted_index.json", JSON.stringify(dataToSave, null, 4), 'utf-8');
+    await fs.promises.writeFile("./output/inverted_index.json", JSON.stringify(serializableIndex, null, 4), 'utf-8');
 }
 
 export async function save_pageranks(idToURL: IdToURL) {
@@ -27,14 +18,14 @@ export async function save_pageranks(idToURL: IdToURL) {
     await fs.promises.writeFile("./output/pageranks.json", JSON.stringify(idToURLArray, null, 4), 'utf-8');
 }
 
-export async function load_saved_inverted_index(): Promise<BuiltIndexResult> {
+export async function load_saved_inverted_index(): Promise<InvertedIndex> {
     const jsonData = await fs.promises.readFile("./output/inverted_index.json", 'utf-8');
     
     // Parse the JSON data
     const data = JSON.parse(jsonData);
     
     // Ensure the structure is as expected
-    const { inverted_index: mapArray, idToURL: idToURLArray } = data;
+    const { inverted_index: mapArray } = data;
 
     if (!Array.isArray(mapArray)) {
         throw new Error("Expected inverted_index to be an array, but got:", mapArray);
@@ -55,10 +46,15 @@ export async function load_saved_inverted_index(): Promise<BuiltIndexResult> {
         }
     ]));
 
-    // Rebuild the idToURL Map
-    const idToURL: IdToURL = new Map(idToURLArray);
+    return inverted_index;
+}
 
-    return {inverted_index, idToURL};
+export async function load_pageranks(): Promise<IdToURL> {
+    const jsonData = await fs.promises.readFile("./output/pageranks.json", 'utf-8');
+    const mapArray = JSON.parse(jsonData);
+    const idToUrl: IdToURL = new Map(mapArray)
+
+    return idToUrl;
 }
 
 export async function parse_input(): Promise<Map<string, CrawlData>> {

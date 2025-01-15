@@ -1,7 +1,7 @@
 // content-based indexer using lnc.ltc and pagerank
 import fs from "fs";
 import type { BuiltIndexResult, CrawlData, IdToURL, IndexData, InvertedIndex, URLData } from "./types/indexer";
-import { load_saved_inverted_index, parse_input, save_inverted_index } from "./components/io-indexer";
+import { load_pageranks, load_saved_inverted_index, parse_input, save_inverted_index, save_pageranks } from "./components/io-indexer";
 
 import {removeStopwords, dan} from "stopword"
 import { Stemmer, Languages } from 'multilingual-stemmer';
@@ -10,38 +10,36 @@ const stemmer = new Stemmer(Languages.Danish); // Porter stemming from the snowb
 
 async function indexer() {
     let inverted_index = new Map<string, IndexData>();
-    let idToURL = new Map<number, URLData>();
+    let idToURL = await load_pageranks();
 
-    const crawled_urls = await parse_input();
+    // const crawled_urls = await parse_input();
 
-    // console.log(crawled_urls);
+    // // console.log(crawled_urls);
     
-    const tokens = []
+    // const tokens = []
 
-    console.time("tokenizing content...");
-    for (const input of crawled_urls.values()) tokens.push(...tokenizer(input.html_content));
-    console.timeEnd("tokenizing content...");
+    // console.time("tokenizing content...");
+    // for (const input of crawled_urls.values()) tokens.push(...tokenizer(input.html_content));
+    // console.timeEnd("tokenizing content...");
 
-	console.time("building index...");
+	// console.time("building index...");
 
-	const built = build_inverted_index(crawled_urls, tokens);
-    inverted_index = built.inverted_index;
-    idToURL = built.idToURL
+	// const built = build_inverted_index(crawled_urls, tokens);
+    // inverted_index = built.inverted_index;
+    // idToURL = built.idToURL
 
-	console.timeEnd("building index...");
+	// console.timeEnd("building index...");
     
-    await save_inverted_index(inverted_index, idToURL);
+    // await save_inverted_index(inverted_index);
+    // await save_pageranks(idToURL);
 
     console.time("loading saved index...");
-    const loaded = await load_saved_inverted_index()
-
-    inverted_index = loaded.inverted_index;
-    idToURL = loaded.idToURL;
+    inverted_index = await load_saved_inverted_index()
 
     console.timeEnd("loading saved index...");
 	
     console.time("searching...");
-    const results = search("Elon Musk SpaceX projekter", inverted_index, idToURL);
+    const results = search("Elon Musk", inverted_index, idToURL);
     console.timeEnd("searching...");
     console.log(results);
 }
@@ -106,16 +104,20 @@ function search(input: string, inverted_index: InvertedIndex, idToURL: IdToURL, 
     const sorted_document_scores = new Map([...document_scores.entries()].sort((a, b) => b[1] - a[1]));
     // console.log(sorted_document_scores);
 
+    const alpha = 0.5;
     const results = []
     let j = 0;
 
-    for (const [doc_id, score] of sorted_document_scores) {
+    for (const [doc_id, content_score] of sorted_document_scores) {
         if (j >= top_n) break;
-        const url = idToURL.get(doc_id)
-        results.push({url: url, score: score*100})
+        const urlData = idToURL.get(doc_id)!
+
+        const score = alpha * content_score + (1 - alpha) * (urlData.page_rank_score * 10000);
+
+        results.push({url: urlData.url, score: score})
         j++;
     }
-    return results;
+    return results.sort((a,b) => b.score - a.score);
 }
 
 function tokenizer(text: string): string[] {

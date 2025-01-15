@@ -33,7 +33,7 @@ async function pagerank() {
     
     // const epsilon = 1e-6; // 0.000001 (common value)
     const epsilon = 1e-6; // 0.000001 (common value)
-    const alpha = 0.1;
+    const alpha = 0.2;
     
     console.log("building prob matrix");
     const prob_matrix = build_probability_matrix(input, URLToId, alpha)
