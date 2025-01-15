@@ -2,6 +2,11 @@
 import fs from "fs";
 import type { URLData } from '../exercise2/web_crawler/lib/types';
 
+import {removeStopwords, dan} from "stopword"
+import { Stemmer, Languages } from 'multilingual-stemmer';
+
+const stemmer = new Stemmer(Languages.Danish); // Porter stemming from the snowball project
+
 type IndexData = {
     document_frequency: number,
     inverse_document_frequency: number,
@@ -119,15 +124,20 @@ async function parse_input(): Promise<Map<string, URLData>> {
 }
 
 function tokenizer(text: string): string[] {
-    return text
-      // Convert text to lowercase for case-insensitive matching
-      .toLowerCase()
-      // Remove unwanted punctuation but keep letters, numbers, and whitespace (supports æ, ø, å, etc.)
-      .replace(/[^\p{L}\p{N}\s]/gu, '') // '\p{L}' matches any letter, '\p{N}' matches any number, 'u' flag for Unicode
-      // Split by whitespace to get individual words
-      .split(/\s+/)
-      // Filter out empty strings (if any)
-      .filter(token => token.length > 0);
+    const tokenized_text = text
+        // Convert text to lowercase for case-insensitive matching
+        .toLowerCase()
+        // Remove unwanted punctuation but keep letters, numbers, and whitespace (supports æ, ø, å, etc.)
+        .replace(/[^\p{L}\p{N}\s]/gu, '') // '\p{L}' matches any letter, '\p{N}' matches any number, 'u' flag for Unicode
+        // Split by whitespace to get individual words
+        .split(/\s+/)
+        // Filter out empty strings (if any)
+        .filter(token => token.length > 0)
+
+    const no_stop_words = removeStopwords(tokenized_text, dan);
+    const stemmed_text = no_stop_words.map((word) => stemmer.stem(word));
+
+    return stemmed_text;
 }
 
 function construct_postings(crawled_urls: Map<string, URLData>, tokens: string[]) {

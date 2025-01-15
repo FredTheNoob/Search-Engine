@@ -1,5 +1,5 @@
 import fs from "fs"
-import type { BuiltIndexResult, IdToURL, InvertedIndex } from "../types/indexer";
+import type { BuiltIndexResult, CrawlData, IdToURL, InvertedIndex } from "../types/indexer";
 
 export async function save_inverted_index(inverted_index: InvertedIndex, idToURL: IdToURL) {
     // Create the serializable index (same as before)
@@ -12,7 +12,6 @@ export async function save_inverted_index(inverted_index: InvertedIndex, idToURL
 
     // Create the ID-to-URL mapping
     const idToURLArray = Array.from(idToURL.entries());
-    
 
     // Save both the inverted index and the ID-to-URL mapping
     const dataToSave = {
@@ -21,6 +20,11 @@ export async function save_inverted_index(inverted_index: InvertedIndex, idToURL
     };
 
     await fs.promises.writeFile("./output/inverted_index.json", JSON.stringify(dataToSave, null, 4), 'utf-8');
+}
+
+export async function save_pageranks(idToURL: IdToURL) {
+    const idToURLArray = Array.from(idToURL.entries());
+    await fs.promises.writeFile("./output/pageranks.json", JSON.stringify(idToURLArray, null, 4), 'utf-8');
 }
 
 export async function load_saved_inverted_index(): Promise<BuiltIndexResult> {
@@ -55,4 +59,11 @@ export async function load_saved_inverted_index(): Promise<BuiltIndexResult> {
     const idToURL: IdToURL = new Map(idToURLArray);
 
     return {inverted_index, idToURL};
+}
+
+export async function parse_input(): Promise<Map<string, CrawlData>> {
+    const jsonData = await fs.promises.readFile("../exercise2/output/sites.json", 'utf-8');
+    const mapArray: [string, CrawlData][] = JSON.parse(jsonData);
+
+    return new Map(mapArray);
 }

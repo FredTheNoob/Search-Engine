@@ -1,6 +1,7 @@
 # Custom
 sites.json
 inverted_index.json
+pageranks.json
 
 .DS_Store
 .env

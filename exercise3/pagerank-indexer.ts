@@ -1,31 +1,36 @@
 // content-based indexer using lnc.ltc and pagerank
 import fs from "fs";
 import type { BuiltIndexResult, CrawlData, IdToURL, IndexData, InvertedIndex, URLData } from "./types/indexer";
-import { load_saved_inverted_index, save_inverted_index } from "./components/io-indexer";
+import { load_saved_inverted_index, parse_input, save_inverted_index } from "./components/io-indexer";
+
+import {removeStopwords, dan} from "stopword"
+import { Stemmer, Languages } from 'multilingual-stemmer';
+
+const stemmer = new Stemmer(Languages.Danish); // Porter stemming from the snowball project
 
 async function indexer() {
     let inverted_index = new Map<string, IndexData>();
     let idToURL = new Map<number, URLData>();
 
-    // const crawled_urls = await parse_input();
+    const crawled_urls = await parse_input();
 
-    // // console.log(crawled_urls);
+    // console.log(crawled_urls);
     
-    // const tokens = []
+    const tokens = []
 
-    // console.time("tokenizing content...");
-    // for (const input of crawled_urls.values()) tokens.push(...tokenizer(input.html_content));
-    // console.timeEnd("tokenizing content...");
+    console.time("tokenizing content...");
+    for (const input of crawled_urls.values()) tokens.push(...tokenizer(input.html_content));
+    console.timeEnd("tokenizing content...");
 
-	// console.time("building index...");
+	console.time("building index...");
 
-	// const built = build_inverted_index(crawled_urls, tokens);
-    // inverted_index = built.inverted_index;
-    // idToURL = built.idToURL
+	const built = build_inverted_index(crawled_urls, tokens);
+    inverted_index = built.inverted_index;
+    idToURL = built.idToURL
 
-	// console.timeEnd("building index...");
+	console.timeEnd("building index...");
     
-    // await save_inverted_index(inverted_index, idToURL);
+    await save_inverted_index(inverted_index, idToURL);
 
     console.time("loading saved index...");
     const loaded = await load_saved_inverted_index()
@@ -36,13 +41,13 @@ async function indexer() {
     console.timeEnd("loading saved index...");
 	
     console.time("searching...");
-    const results = search("trump lars løkke og rusland", inverted_index, idToURL);
+    const results = search("Elon Musk SpaceX projekter", inverted_index, idToURL);
     console.timeEnd("searching...");
     console.log(results);
 }
 
 function search(input: string, inverted_index: InvertedIndex, idToURL: IdToURL, top_n: number = 10) {
-    const terms = input.split(" ");
+    const terms = tokenizer(input)
 
     // Step 1: Use reduce to count the occurrences of each word.
     const term_frequencies = terms.reduce((acc, term) => {
@@ -113,23 +118,21 @@ function search(input: string, inverted_index: InvertedIndex, idToURL: IdToURL, 
     return results;
 }
 
-async function parse_input(): Promise<Map<string, CrawlData>> {
-    const jsonData = await fs.promises.readFile("../exercise2/output/sites.json", 'utf-8');
-    const mapArray: [string, CrawlData][] = JSON.parse(jsonData);
+function tokenizer(text: string): string[] {
+    const tokenized_text = text
+        // Convert text to lowercase for case-insensitive matching
+        .toLowerCase()
+        // Remove unwanted punctuation but keep letters, numbers, and whitespace (supports æ, ø, å, etc.)
+        .replace(/[^\p{L}\p{N}\s]/gu, '') // '\p{L}' matches any letter, '\p{N}' matches any number, 'u' flag for Unicode
+        // Split by whitespace to get individual words
+        .split(/\s+/)
+        // Filter out empty strings (if any)
+        .filter(token => token.length > 0)
 
-    return new Map(mapArray);
-}
+    const no_stop_words = removeStopwords(tokenized_text, dan);
+    const stemmed_text = no_stop_words.map((word) => stemmer.stem(word));
 
-function tokenizer(text: string): string[] {    
-    return text
-      // Convert text to lowercase for case-insensitive matching
-      .toLowerCase()
-      // Remove unwanted punctuation but keep letters, numbers, and whitespace (supports æ, ø, å, etc.)
-      .replace(/[^\p{L}\p{N}\s]/gu, '') // '\p{L}' matches any letter, '\p{N}' matches any number, 'u' flag for Unicode
-      // Split by whitespace to get individual words
-      .split(/\s+/)
-      // Filter out empty strings (if any)
-      .filter(token => token.length > 0);
+    return stemmed_text;
 }
 
 function build_inverted_index(crawled_urls: Map<string, CrawlData>, tokens: string[]): BuiltIndexResult {
@@ -138,13 +141,13 @@ function build_inverted_index(crawled_urls: Map<string, CrawlData>, tokens: stri
     let doc_id = 0;
 
 	for (const data of crawled_urls.values()) {
-        const document = data.html_content
+        const document = tokenizer(data.html_content)
 
 		for (const token of tokens) {
 			if (document.includes(token)) {
 				const term_data = inverted_index.get(token);
 
-                const term_frequency = [...document.matchAll(new RegExp(token, 'g'))].length                
+                const term_frequency = document.filter(word => word === token).length              
 
 				if (!term_data) {
 					inverted_index.set(token, 

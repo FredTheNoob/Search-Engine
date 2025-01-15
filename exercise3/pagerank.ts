@@ -1,4 +1,6 @@
 import fs from "fs"
+import type { CrawlData, URLData } from "./types/indexer";
+import { load_saved_inverted_index, parse_input, save_inverted_index, save_pageranks } from "./components/io-indexer";
 
 // Following the slides (slide 19)
 const testInput = new Map<string,CrawlData>([
@@ -8,44 +10,70 @@ const testInput = new Map<string,CrawlData>([
     ["https://dr3.dk",{html_content: "blabla", pages: ["https://tv2.dk"]}] // 4
 ])
 
-type CrawlData = {
-    html_content: string,
-    pages: string[]
-}
-
-async function parse_input(): Promise<Map<string, CrawlData>> {
-    const jsonData = await fs.promises.readFile("../exercise2/output/sites.json", 'utf-8');
-    const mapArray: [string, CrawlData][] = JSON.parse(jsonData);
-
-    return new Map(mapArray);
-}
+const testInput2 = new Map<string,CrawlData>([
+    ["https://dr1.dk",{html_content: "blabla", pages: ["https://dr2.dk", "https://dr4.dk"]}], // 1
+    ["https://dr2.dk",{html_content: "blabla", pages: ["https://dr3.dk", "https://dr5.dk"]}], // 2
+    ["https://dr3.dk",{html_content: "blabla", pages: ["https://dr1.dk"]}], // 3
+    ["https://dr4.dk",{html_content: "blabla", pages: ["https://dr3.dk","https://dr8.dk"]}], // 4
+    ["https://dr5.dk",{html_content: "blabla", pages: ["https://dr7.dk"]}], // 5
+    ["https://dr6.dk",{html_content: "blabla", pages: ["https://dr2.dk","https://dr7.dk","https://dr8.dk"]}], // 6
+    ["https://dr7.dk",{html_content: "blabla", pages: ["https://dr5.dk","https://dr9.dk"]}], // 7
+    ["https://dr8.dk",{html_content: "blabla", pages: ["https://dr3.dk"]}], // 8
+    ["https://dr9.dk",{html_content: "blabla", pages: []}], // 9
+    ["https://dr10.dk",{html_content: "blabla", pages: ["https://dr6.dk","https://dr9.dk"]}], // 10
+])
 
 async function pagerank() {
-    // const input = await parse_input();
-    const input = testInput;
+    console.time("running pagerank algorithm")
+    // const input = testInput2;
+    console.log("parsing input");
+    const input = await parse_input();
+    console.log("constructing link ids");
     const URLToId = construct_link_ids(input);
+    
+    // const epsilon = 1e-6; // 0.000001 (common value)
     const epsilon = 1e-6; // 0.000001 (common value)
     const alpha = 0.1;
-
+    
+    console.log("building prob matrix");
     const prob_matrix = build_probability_matrix(input, URLToId, alpha)
     const q0: number[] = Array.from({length: URLToId.size}, (_, i) => i == 0 ? 1 : 0)
     
     let qprev = Array.from({length: URLToId.size}, (_, i) => 0);
     let qnext = q0;
-
+    
     let steps = 1;
-
+    
+    console.log("start power iteration");
     // Power iteration
     while (!has_converged(qprev, qnext, epsilon)) {
         qprev = qnext
         qnext = multiply_matrices([qprev], prob_matrix);
-        steps++;
+        steps++;        
     }
-
+    
     console.log("final q");
     console.log(qnext);
-
     console.log("steps: ", steps);
+    
+    const pagerankIdToURL = new Map<number, URLData>();
+    
+    let id = 0;
+    for (const url of URLToId.keys()) {
+        pagerankIdToURL.set(id, {
+            url: url,
+            page_rank_score: qnext[id]
+        })
+        id++;
+    }
+    
+    const sum = qnext.reduce((acc, val) => acc + val, 0);
+    console.log("Sum of PageRank values:", sum);
+    
+    console.time("saving pageranks to JSON")
+    await save_pageranks(pagerankIdToURL)
+    console.timeEnd("saving pageranks to JSON")
+    console.timeEnd("running pagerank algorithm")
 }
 
 function construct_link_ids(inputMap: Map<string, CrawlData>) {    
@@ -71,7 +99,7 @@ function construct_link_ids(inputMap: Map<string, CrawlData>) {
 
 function build_probability_matrix(inputMap: Map<string, CrawlData>, URLToId: Map<string, number>, alpha: number) {
     const matrix_size = URLToId.size;
-    let prob_matrix: number[][] = []
+    let prob_matrix: number[][] = Array.from({length: matrix_size}, (_, i) => Array.from({length: matrix_size}, (_, j) => 0));
 
     // Builds P
     for (const [key, value] of inputMap) {
@@ -88,12 +116,39 @@ function build_probability_matrix(inputMap: Map<string, CrawlData>, URLToId: Map
         prob_matrix[keyId] = row;
     }
 
-    // Dangling page handling
-    const U = Array.from({length: matrix_size}, (_, i) => Array.from({length: matrix_size}, (_, j) => 1 / matrix_size));
     
-    prob_matrix = add_matrices(multiply_matrix(1-alpha, prob_matrix), multiply_matrix(alpha, U))
+    // console.log("P");
+    // console.log(multiply_matrix(1-alpha, prob_matrix));
+    // console.log("U");
+    // console.log(construct_teleport_matrix(prob_matrix, alpha, matrix_size));
+    
+
+    prob_matrix = add_matrices(multiply_matrix(1-alpha, prob_matrix), construct_teleport_matrix(prob_matrix, alpha, matrix_size))
+
+    // console.log("PROB MATRIX");
+    // console.log(prob_matrix);
 
     return prob_matrix;
+}
+
+// Dangling page handling - alpha * U from the slides
+function construct_teleport_matrix(prob_matrix: number[][], alpha: number, matrix_size: number): number[][] {
+    const teleport_matrix: number[][] = [];
+
+    let i = 0;
+    for (const row of prob_matrix) {
+        const is_dangling_page = row.every((v) => v == 0)
+
+        if (is_dangling_page) {
+            teleport_matrix[i] = Array.from({length: matrix_size}, () => 1 / matrix_size)
+        }
+        else {
+            teleport_matrix[i] = Array.from({length: matrix_size}, () => alpha * (1 / matrix_size))
+        }
+        i++;
+    }
+    
+    return teleport_matrix;
 }
 
 function multiply_matrix(constant: number, A: number[][]): number[][] {
@@ -137,6 +192,9 @@ function multiply_matrices(A: number[][], B: number[][]): number[] {
 function add_matrices(A: number[][], B: number[][]): number[][] {
     const numRows = A.length;
     const numCols = A[0].length;
+
+    // console.log(`prob: ${numRows},${numCols}. U: ${B.length},${B[0].length}`);
+    
 
     // Check if matrices have the same dimensions
     if (numRows !== B.length || numCols !== B[0].length) {

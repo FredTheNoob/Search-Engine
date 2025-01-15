@@ -34,14 +34,13 @@ const userAgentName = "Fred's Crawler/1.0";
 
 const PAGES = 1000
 const DEFAULT_CRAWL_DELAY = 2000
+const SIMILARITY_THRESHOLD = 0.8
 
 const processed_urls = new Map<URL, URLData>()
 const frontier: string[] = []
 const robots_filters = new Map<string, IRobotRule>()
 
 const visited_hosts_timestamps = new Map<string, number>()
-
-const SIMILARITY_THRESHOLD = 0.7
 
 async function crawler() {
     const start = Date.now();
@@ -68,7 +67,7 @@ async function crawler() {
             continue;
         }
 
-        console.time('fetching page content...')
+        console.time(`fetching page (${url}) content...`)
 
         let res;
         try {
@@ -80,7 +79,7 @@ async function crawler() {
         }
 
         const page_content = cleanHtml(res);
-        console.timeEnd('fetching page content...')
+        console.timeEnd(`fetching page (${url}) content...`)
 
         console.time('checking for near duplicates...')
         if (is_content_seen(page_content, processed_urls, SIMILARITY_THRESHOLD)) {

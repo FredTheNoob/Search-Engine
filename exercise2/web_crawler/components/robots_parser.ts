@@ -5,6 +5,8 @@ export interface IRobotRule {
 }
 
 export function parse_robots_file(robotsFile: string, url: string): IRobotRule {
+    console.log("parsing robots file for " + url);
+    
     const robotRules = new Map<string, IRobotRule>();
 
     const segmentedRobotsFile = robotsFile.split("\n");
@@ -14,7 +16,12 @@ export function parse_robots_file(robotsFile: string, url: string): IRobotRule {
     const newRobotRule = {allows: [], disallows: [], crawlDelay: 0}
     
     for (const segment of segmentedRobotsFile) {        
-        if (segment.includes("User-agent")) {
+        if (segment.includes("User-agent")) {     
+            // Ignore comments
+            if (segment.startsWith("#") || segment.startsWith("##")) {
+                continue;
+            }
+                   
             const userAgentName = segment.split(": ")[1].split(" ")[0];
             robotRules.set(userAgentName, newRobotRule);  
             
